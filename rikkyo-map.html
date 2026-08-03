@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>陸橋撮影スポットガイド</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --paper:#fafaf8;
+    --kami:#1a1a1a;      /* ★★★ 黒 */
+    --ryo:#7b2d3b;       /* ★★☆ マルーン */
+    --kiroku:#b5b5b0;    /* ★☆☆ 薄グレー */
+    --accent:#2b6e6a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
+    color:var(--ink);
+    display:flex;flex-direction:column;
+    background:var(--paper);
+  }
+  header{
+    background:var(--paper);
+    border-bottom:1px solid #e2e2dd;
+    padding:10px 14px 8px;
+    z-index:1000;
+  }
+  header h1{font-size:15px;font-weight:700;letter-spacing:.04em;}
+  header h1 span.count{font-size:11px;font-weight:500;color:#888;margin-left:6px;}
+  .legend{display:flex;gap:12px;margin-top:6px;font-size:11px;color:#555;}
+  .legend span{display:flex;align-items:center;gap:4px;}
+  .legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}
+  .legend .c1{background:var(--kami);}
+  .legend .c2{background:var(--ryo);}
+  .legend .c3{background:var(--kiroku);border:1px solid #999;}
+  #map{flex:1;width:100%;}
+  .pin{
+    width:18px;height:18px;border-radius:3px;
+    border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);
+  }
+  .leaflet-popup-content-wrapper{border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.25);}
+  .leaflet-popup-content{margin:14px 16px 12px;width:250px !important;font-size:12.5px;line-height:1.65;}
+  .sp-rating{font-size:13px;letter-spacing:.1em;margin-bottom:2px;}
+  .sp-name{font-size:15px;font-weight:700;margin-bottom:8px;line-height:1.4;}
+  .sp-table{border-top:1px solid #eee;padding-top:8px;margin-bottom:8px;}
+  .sp-row{display:flex;margin-bottom:2px;}
+  .sp-row b{flex:0 0 74px;font-weight:600;color:#666;}
+  .sp-row span{flex:1;}
+  .sp-notes{background:#f4f4f0;border-radius:6px;padding:7px 9px;margin-bottom:10px;font-size:12px;}
+  .sp-notes li{margin-left:1.1em;}
+  .sp-links{display:flex;flex-direction:column;gap:6px;}
+  .sp-btn{
+    display:block;text-align:center;padding:8px 10px;border-radius:7px;
+    font-size:12.5px;font-weight:600;text-decoration:none;
+  }
+  .sp-btn.article{background:#fff;border:1.5px solid var(--accent);color:var(--accent);}
+  .sp-btn.navi{background:var(--accent);color:#fff;}
+  footer{
+    background:var(--paper);border-top:1px solid #e2e2dd;
+    padding:6px 14px;font-size:10.5px;color:#999;text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>陸橋撮影スポットガイド<span class="count" id="spotCount"></span></h1>
+  <div class="legend">
+    <span><i class="c1"></i>★★★ 神スポット</span>
+    <span><i class="c2"></i>★★☆ 良スポット</span>
+    <span><i class="c3"></i>★☆☆ 記録スポット</span>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<footer>ピンをタップすると詳細情報が表示されます</footer>
+
+<script>
+const TIER_COLORS = {3:"#1a1a1a", 2:"#7b2d3b", 1:"#b5b5b0"};
+const TIER_STARS  = {3:"★★★", 2:"★★☆", 1:"★☆☆"};
+
+/* ============================================================
+   スポットデータ
+   新しいスポットを追加するときは、この配列の末尾に
+   同じ形式で1ブロック追記してください。
+   article が null の場合、作例記事ボタンは表示されません。
+   ============================================================ */
+const spots = [
+  {
+    "name": "大井中央陸橋",
+    "tier": 3,
+    "lat": 35.595078,
+    "lng": 139.7587086,
+    "article": "https://note.com/ashita_ji/n/n0cb46348760e",
+    "photos": null,
+    "date": "2026/04",
+    "time": "16:00〜17:00",
+    "subject": "線路、新幹線、貨物、車庫",
+    "fence": "高め（新幹線車庫）",
+    "notes": [
+      "新幹線は高い柵に遮られて見づらい（肉眼だったら見える）",
+      "貨物の車庫や点検、清掃場所が見える",
+      "新幹線も陸橋の南側から少し見える",
+      "近くに駐車場あり（最大料金あり）"
+    ]
+  },
+  {
+    "name": "鶯谷駅付近",
+    "tier": 3,
+    "lat": 35.720353,
+    "lng": 139.779509,
+    "article": "https://note.com/ashita_ji/n/n732ab5acacf1",
+    "photos": null,
+    "date": "2025/08",
+    "time": "15:00〜16:00",
+    "subject": "線路、電車",
+    "fence": "低め",
+    "notes": [
+      "フェンスは低く撮りやすい",
+      "駅からの人通りが多いので注意が必要",
+      "多くの路線が見える",
+      "各路線が階段状になっているのが見どころ",
+      "近くに駐車場があるが、狭い道路が多いので注意"
+    ]
+  },
+  {
+    "name": "聖橋",
+    "tier": 3,
+    "lat": 35.699705,
+    "lng": 139.765591,
+    "article": "https://note.com/ashita_ji/n/n6371172ba694",
+    "photos": "陸橋付近から2025.3-②-4 〜 陸橋付近から2025.3-②-8",
+    "date": "2025/03",
+    "time": "15:00〜17:00",
+    "subject": "線路、電車、駅、神田川",
+    "fence": "低め",
+    "notes": [
+      "地下鉄、JRが様々な方向に伸びる",
+      "撮影者が多い",
+      "丸の内がトンネルから出てくる",
+      "近くに駐車場多数あり（最大料金あり）",
+      "一方通行が多いため、徒歩移動の方が便利",
+      "近くには、ニコライ堂や湯島聖堂などの撮影スポットあり"
+    ]
+  },
+  {
+    "name": "池袋大橋",
+    "tier": 3,
+    "lat": 35.734159,
+    "lng": 139.713458,
+    "article": "https://note.com/ashita_ji/n/nf9571134911e",
+    "photos": null,
+    "date": "2025/08",
+    "time": "15:00〜16:00",
+    "subject": "線路、電車",
+    "fence": "低め",
+    "notes": [
+      "フェンスは低く撮りやすい",
+      "多くの路線が見える",
+      "線路の立体交差など複雑交差している線路が見どころ",
+      "豊島清掃工場の煙突も見どころ",
+      "近くに駐車場多数（1日最大料金ありも）"
+    ]
+  },
+  {
+    "name": "三ヶ月下跨線人道橋",
+    "tier": 3,
+    "lat": 35.820359,
+    "lng": 139.919685,
+    "article": "https://note.com/ashita_ji/n/n4fdb15d38410",
+    "photos": null,
+    "date": "2025/01",
+    "time": "15:00〜17:00",
+    "subject": "線路、電車、貨物線、貨物列車",
+    "fence": "低め",
+    "notes": [
+      "貨物線が間近で見える",
+      "貨物列車は頻繁に通らないので、貨物列車を撮りたい場合は時刻表を確認した方が良い",
+      "JRの上を貨物線が通っている",
+      "近くに駐車場がない"
+    ]
+  },
+  {
+    "name": "鉄砲塚跨線橋",
+    "tier": 3,
+    "lat": 35.6727917,
+    "lng": 140.043027,
+    "article": "https://note.com/ashita_ji/n/ne3e899651bc3",
+    "photos": null,
+    "date": "2021/03",
+    "time": "15:00〜18:00",
+    "subject": "線路、電車、車庫",
+    "fence": "高め",
+    "notes": [
+      "フェンスは高い",
+      "隙間から、もしくは手を伸ばせば撮影可能",
+      "電車の車庫や点検、清掃場所が見える",
+      "近くに駐車場多数あり"
+    ]
+  },
+  {
+    "name": "小松橋",
+    "tier": 3,
+    "lat": 35.721949,
+    "lng": 139.865511,
+    "article": "https://note.com/ashita_ji/n/n4381b30d1a8f",
+    "photos": null,
+    "date": "2024/10",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車",
+    "fence": "高め、左右に低いところもあり",
+    "notes": [
+      "フェンスが高い",
+      "歩道が広く、撮影しやすい",
+      "フェンス越しでも景色は見える",
+      "かなり遠くまで見通せる",
+      "近くに駐車場あり（最大料金あり）"
+    ]
+  },
+  {
+    "name": "千葉市若葉区高品町（県道64号）",
+    "tier": 2,
+    "lat": 35.629348,
+    "lng": 140.140043,
+    "article": "https://note.com/ashita_ji/n/n1c9d99a7f460",
+    "photos": "陸橋付近から2025.6-10 〜 陸橋付近から2025.6-14",
+    "date": "2022/11",
+    "time": "16:00〜17:00",
+    "subject": "線路",
+    "fence": "低め",
+    "notes": [
+      "人通り少ない",
+      "短い陸橋",
+      "近くに駐車場なし",
+      "車を置けるところもなし"
+    ]
+  },
+  {
+    "name": "お茶の水橋",
+    "tier": 2,
+    "lat": 35.700245,
+    "lng": 139.763568,
+    "article": "https://note.com/ashita_ji/n/n62e94f690486",
+    "photos": "陸橋付近から2025.3-①-1〜 陸橋付近から2025.3-①-8",
+    "date": "2025/03",
+    "time": "15:00〜17:00",
+    "subject": "線路、電車、駅、神田川、船",
+    "fence": "低め",
+    "notes": [
+      "線路と神田川が並走する",
+      "神田川には、時々運搬船が通",
+      "近くに駐車場多数あり（最大料金あり）",
+      "パーキングメーター多数あり",
+      "一方通行が多いため、徒歩移動の方が便利"
+    ]
+  },
+  {
+    "name": "八ツ山橋",
+    "tier": 2,
+    "lat": 35.6245861,
+    "lng": 139.7387462,
+    "article": "https://note.com/ashita_ji/n/n9a3231ea9b02",
+    "photos": "陸橋付近から2025.6-1 〜 陸橋付近から2025.6-8",
+    "date": "2025/06",
+    "time": "14:00〜15:00",
+    "subject": "線路、鉄道橋",
+    "fence": "低め",
+    "notes": [
+      "柵は低いが、見づらい",
+      "ゴジラが上陸した場所",
+      "近くに駐車場あるが、道路が狭く、一方通行も多いので探すのに手間取るかも"
+    ]
+  },
+  {
+    "name": "御殿山通り",
+    "tier": 2,
+    "lat": 35.6204849,
+    "lng": 139.7377119,
+    "article": "https://note.com/ashita_ji/n/n9a3231ea9b02",
+    "photos": "陸橋付近から2025.6-10 〜 陸橋付近から2025.6-14",
+    "date": "2025/06",
+    "time": "14:00〜15:00",
+    "subject": "線路、鉄道橋",
+    "fence": "高め",
+    "notes": [
+      "柵が高い",
+      "近くの御殿山庭園も撮影スポット",
+      "近くに駐車場あるが、道路が狭く、一方通行も多いので探すのに手間取るかも"
+    ]
+  },
+  {
+    "name": "両大師橋",
+    "tier": 2,
+    "lat": 35.7159821,
+    "lng": 139.7784178,
+    "article": "https://note.com/ashita_ji/n/n3e9e76ea4aab",
+    "photos": null,
+    "date": "2026/02",
+    "time": "15:00〜16:00",
+    "subject": "線路、駅ホーム、電車",
+    "fence": "低め",
+    "notes": [
+      "高低差がある線路が見もの",
+      "近くに駐車場あり（最大料金あり）",
+      "駐車場は都内の割には安い"
+    ]
+  },
+  {
+    "name": "下御隠殿橋",
+    "tier": 2,
+    "lat": 35.7283924,
+    "lng": 139.7703052,
+    "article": "https://note.com/ashita_ji/n/n6c2e700364d1",
+    "photos": null,
+    "date": "2025/12",
+    "time": "16:00〜17:00",
+    "subject": "線路、新幹線、貨物、車庫",
+    "fence": "低め、ただ新幹線のところだけ高い",
+    "notes": [
+      "新幹線の線路は高い柵に遮られて見づらい。横からなら見える",
+      "テラスがあり、撮影しやすい",
+      "近くに駐車場ない。日暮里南公園付近にいくつかある。そこから少し歩く"
+    ]
+  },
+  {
+    "name": "空蝉橋",
+    "tier": 2,
+    "lat": 35.732327,
+    "lng": 139.725844,
+    "article": "https://note.com/ashita_ji/n/n53a1274bf2e9",
+    "photos": "陸橋付近から2025.10-1 〜陸橋付近から2025.10-10",
+    "date": "2026/04",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車、駅",
+    "fence": "低め",
+    "notes": [
+      "フェンス低く、歩道もあり撮影しやすい",
+      "ちょっと歩き駅まで行けば路面電車も撮れる",
+      "近くに駐車場あり（最大料金あり）"
+    ]
+  },
+  {
+    "name": "京成津田沼駅付近",
+    "tier": 2,
+    "lat": 35.684262,
+    "lng": 140.021526,
+    "article": "https://note.com/ashita_ji/n/nb174877ed2d4",
+    "photos": "陸橋付近から2025.11-1〜陸橋付陸橋付近から2025.11-2",
+    "date": "2025/11",
+    "time": "15:00〜16:00",
+    "subject": "線路、駅",
+    "fence": "低い",
+    "notes": [
+      "フェンスが低く撮影しやすい",
+      "駅近くに行くと複数の線路が交差している",
+      "近くのローソンにコインパーキングあり"
+    ]
+  },
+  {
+    "name": "宮仲橋",
+    "tier": 2,
+    "lat": 35.7341178,
+    "lng": 139.7190691,
+    "article": "https://note.com/ashita_ji/n/n23c10dd528d1",
+    "photos": "陸橋付近から2025.9-1〜陸橋付近から2025.9-15",
+    "date": "2025/09",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車、スカイツリー",
+    "fence": "低い",
+    "notes": [
+      "フェンス低く歩道もあり、撮影しやすい",
+      "遠くにスカイツリーが見える",
+      "新幹線も陸橋の南側から少し見える"
+    ]
+  },
+  {
+    "name": "堀之内橋",
+    "tier": 2,
+    "lat": 35.7344375,
+    "lng": 139.7176875,
+    "article": "https://note.com/ashita_ji/n/n23c10dd528d1",
+    "photos": "陸橋付近から2025.9-6〜陸橋付近から2025.9-10",
+    "date": "2025/09",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車",
+    "fence": "低い",
+    "notes": [
+      "フェンスは低く歩道もあるので撮りやすい",
+      "橋の道路がかなり広く、交通量も多い。反対側に行くの時は注意",
+      "近くの駐車場は少ない"
+    ]
+  },
+  {
+    "name": "寛永寺谷中霊園付近",
+    "tier": 2,
+    "lat": 35.7249158,
+    "lng": 139.774558,
+    "article": "https://note.com/ashita_ji/n/n6c2e700364d1",
+    "photos": null,
+    "date": "2025/12",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車、新幹線",
+    "fence": "低いところと高い（新幹線）のところがある。",
+    "notes": [
+      "新幹線は高い柵に遮られているが、横からなら見える",
+      "駐車場あるが、徒歩10分くらいのところが多い"
+    ]
+  },
+  {
+    "name": "船堀タワー付近",
+    "tier": 2,
+    "lat": 35.6840197,
+    "lng": 139.8681661,
+    "article": "https://note.com/ashita_ji/n/n8b6f67c40e58",
+    "photos": "陸橋付近から2024.11-4〜陸橋付近から2024.11-6",
+    "date": "2024/11",
+    "time": "15:00〜16:00",
+    "subject": "線路、電車、船掘タワー、駅",
+    "fence": "低い",
+    "notes": [
+      "地下鉄（都営新宿線）が地上から地下へもぐるところが見れる",
+      "船堀タワーからの撮影可能",
+      "近くに駐車場あり（最大料金あり）"
+    ]
+  },
+  {
+    "name": "上一色陸橋",
+    "tier": 2,
+    "lat": 35.7263219,
+    "lng": 139.8714898,
+    "article": "https://note.com/ashita_ji/n/ncb7745a76917",
+    "photos": null,
+    "date": "2024/07",
+    "time": "15:00〜16:00",
+    "subject": "線路、電車",
+    "fence": "低め",
+    "notes": [
+      "多くの線路が見える",
+      "多くのポイントがあり線路が複雑に交差する",
+      "各線の高低差があるのもわかる",
+      "近くに駐車場あり（最大料金あり）"
+    ]
+  },
+  {
+    "name": "塚越陸橋",
+    "tier": 2,
+    "lat": 35.8204585,
+    "lng": 139.6994517,
+    "article": "https://note.com/ashita_ji/n/nfbf356a0e138",
+    "photos": null,
+    "date": "2026/05",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車、駅、送電線",
+    "fence": "低い",
+    "notes": [
+      "撮影しやすい",
+      "近くの変電所と送電線が見もの",
+      "6本の線路がまっすぐに伸びる",
+      "近くに駐車場あり（最大料金あり）"
+    ]
+  },
+  {
+    "name": "新作跨線人道橋",
+    "tier": 2,
+    "lat": 35.8036871,
+    "lng": 139.9140402,
+    "article": "https://note.com/ashita_ji/n/n77b939279bab",
+    "photos": null,
+    "date": "2024/06",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車、陸橋",
+    "fence": "高め、左右に低いところもあり",
+    "notes": [
+      "陸橋自体が味わいがある",
+      "フェンス高いが、隙間多いものなので肉眼では見やすい",
+      "近くに駐車場なし",
+      "JR北松戸駅から徒歩５分程度"
+    ]
+  },
+  {
+    "name": "西船近隣公園付近",
+    "tier": 2,
+    "lat": 35.703788,
+    "lng": 139.967389,
+    "article": "https://note.com/ashita_ji/n/n28c6eebe5128",
+    "photos": null,
+    "date": "2024/05",
+    "time": "15:00〜16:00",
+    "subject": "線路、電車、陸橋",
+    "fence": "低め",
+    "notes": [
+      "変わった形の陸橋",
+      "交通量が多い",
+      "近くに駐車場あり（公園の無料駐車場）"
+    ]
+  },
+  {
+    "name": "西川口駅付近",
+    "tier": 1,
+    "lat": 35.8180348,
+    "lng": 139.7018887,
+    "article": "https://note.com/ashita_ji/n/n44cd10f2480c",
+    "photos": null,
+    "date": "2026/05",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車、駅",
+    "fence": "低い",
+    "notes": [
+      "撮影しやすい",
+      "陸橋の階段からも撮影可能",
+      "6本の線路がまっすぐに伸びる",
+      "近くに駐車場あり（最大料金あり）"
+    ]
+  },
+  {
+    "name": "三村跨線人道橋",
+    "tier": 1,
+    "lat": 35.8151780090007,
+    "lng": 139.918084617369,
+    "article": "https://note.com/ashita_ji/n/nb8ae45ca9146",
+    "photos": null,
+    "date": "2025/01",
+    "time": "15:00〜17:00",
+    "subject": "線路、電車、陸橋",
+    "fence": "低め",
+    "notes": [
+      "変わった形の陸橋",
+      "人通りが少ない",
+      "近くに駐車場がない"
+    ]
+  },
+  {
+    "name": "キテミテマツド(松戸駅)付近",
+    "tier": 1,
+    "lat": 35.781802,
+    "lng": 139.899697,
+    "article": "https://note.com/ashita_ji/n/n8426a5346a30",
+    "photos": null,
+    "date": "2024/12",
+    "time": "15:00〜17:00",
+    "subject": "線路、電車、陸橋",
+    "fence": "高め",
+    "notes": [
+      "新しい陸橋できれい",
+      "人通りが少ない",
+      "近くに駐車場が多数"
+    ]
+  },
+  {
+    "name": "京成津田沼駅付近 2",
+    "tier": 1,
+    "lat": 35.6848565,
+    "lng": 140.022313,
+    "article": "https://note.com/ashita_ji/n/nb174877ed2d4",
+    "photos": "陸橋付近から2025.11-5",
+    "date": "2025/11",
+    "time": "15:00〜16:00",
+    "subject": "線路、駅",
+    "fence": "低い",
+    "notes": [
+      "フェンスが低く撮影しやすい",
+      "近くのローソンにコインパーキングあり"
+    ]
+  },
+  {
+    "name": "勝田台駅付近(A地点：富士見橋)",
+    "tier": 1,
+    "lat": 35.714788,
+    "lng": 140.119608,
+    "article": "https://note.com/ashita_ji/n/n07b08b9203fa",
+    "photos": "陸橋付近から2026.3-1〜陸橋付近から2026.3-3",
+    "date": "2026/03",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車",
+    "fence": "低い",
+    "notes": [
+      "近くに駐車場なし",
+      "京成本線　勝田台駅　近い",
+      "近くの道路16号線はよく渋滞する"
+    ]
+  },
+  {
+    "name": "勝田台駅付近(B地点：やちよばし)",
+    "tier": 1,
+    "lat": 35.71515,
+    "lng": 140.123042,
+    "article": "https://note.com/ashita_ji/n/n07b08b9203fa",
+    "photos": "陸橋付近から2026.3-7〜陸橋付近から2026.3-9",
+    "date": "2026/03",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車",
+    "fence": "やや高い",
+    "notes": [
+      "近くに駐車場なし",
+      "京成本線　勝田台駅　近い",
+      "駅が近いため交通量多い　車に注意",
+      "近くの道路16号線はよく渋滞する"
+    ]
+  },
+  {
+    "name": "南柏ヤングボウル付近",
+    "tier": 1,
+    "lat": 35.846575,
+    "lng": 139.957282,
+    "article": "https://note.com/ashita_ji/n/n2b09a1ab19f6",
+    "photos": null,
+    "date": "2024/09",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車、ボウリング場",
+    "fence": "低め",
+    "notes": [
+      "フェンスは低い",
+      "車が渋滞している",
+      "近くに駐車場あり（最大料金あり）"
+    ]
+  },
+  {
+    "name": "ホテル日航成田付近",
+    "tier": 1,
+    "lat": 35.783214,
+    "lng": 140.379811,
+    "article": "https://note.com/ashita_ji/n/nde1e6e56bea0",
+    "photos": "陸橋付近から2024.7②-1 〜 陸橋付近から2024.7②-5",
+    "date": "2024/07",
+    "time": "15:00〜16:00",
+    "subject": "トンネル、線路、電車",
+    "fence": "なし",
+    "notes": [
+      "陸橋ではない",
+      "トンネルから電車が出てくるところを上から見える",
+      "新幹線も陸橋の南側から少し見える",
+      "駐車場が近くにまったくないので注意"
+    ]
+  }
+];
+
+document.getElementById("spotCount").textContent = "全" + spots.length + "箇所";
+
+const map = L.map("map", {zoomControl:false});
+L.control.zoom({position:"bottomright"}).addTo(map);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+const bounds = [];
+spots.forEach(s => {
+  const icon = L.divIcon({
+    className:"",
+    html:`<div class="pin" style="background:${TIER_COLORS[s.tier]}"></div>`,
+    iconSize:[18,18], iconAnchor:[9,9]
+  });
+
+  const naviUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
+
+  const rows = [];
+  if (s.photos)  rows.push(`<div class="sp-row"><b>記事中写真</b><span>${s.photos}</span></div>`);
+  if (s.date)    rows.push(`<div class="sp-row"><b>撮影日時</b><span>${s.date}</span></div>`);
+  if (s.time)    rows.push(`<div class="sp-row"><b>撮影時間</b><span>${s.time}</span></div>`);
+  if (s.subject) rows.push(`<div class="sp-row"><b>被写体</b><span>${s.subject}</span></div>`);
+  if (s.fence)   rows.push(`<div class="sp-row"><b>フェンス</b><span>${s.fence}</span></div>`);
+
+  const notesHtml = s.notes && s.notes.length
+    ? `<div class="sp-notes">備考：<ul>${s.notes.map(n=>`<li>${n}</li>`).join("")}</ul></div>`
+    : "";
+
+  const articleBtn = s.article
+    ? `<a class="sp-btn article" href="${s.article}" target="_blank" rel="noopener">📷 作例記事を見る</a>`
+    : "";
+
+  const html = `
+    <div class="sp-rating">${TIER_STARS[s.tier]}</div>
+    <div class="sp-name">${s.name}</div>
+    <div class="sp-table">${rows.join("")}</div>
+    ${notesHtml}
+    <div class="sp-links">
+      ${articleBtn}
+      <a class="sp-btn navi" href="${naviUrl}" target="_blank" rel="noopener">🚗 Googleマップでナビ開始</a>
+    </div>
+  `;
+
+  L.marker([s.lat, s.lng], {icon}).addTo(map).bindPopup(html);
+  bounds.push([s.lat, s.lng]);
+});
+
+map.fitBounds(bounds, {padding:[40,40]});
+</script>
+
+</body>
+</html>
