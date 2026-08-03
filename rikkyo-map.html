@@ -59,6 +59,37 @@
   }
   .sp-btn.article{background:#fff;border:1.5px solid var(--accent);color:var(--accent);}
   .sp-btn.navi{background:var(--accent);color:#fff;}
+  #infoBtn{
+    float:right;
+    border:1px solid #ccc;background:#fff;color:#555;
+    font-size:11px;padding:3px 8px;border-radius:12px;
+    cursor:pointer;font-family:inherit;
+  }
+  #infoOverlay{
+    display:none;
+    position:fixed;inset:0;z-index:2000;
+    background:rgba(0,0,0,.45);
+    align-items:center;justify-content:center;
+    padding:20px;
+  }
+  #infoOverlay.open{display:flex;}
+  #infoCard{
+    background:#fff;border-radius:12px;
+    max-width:420px;width:100%;max-height:80vh;overflow-y:auto;
+    padding:20px 22px 18px;
+    font-size:13px;line-height:1.8;
+    box-shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  #infoCard h2{font-size:15px;margin-bottom:10px;}
+  #infoCard h3{font-size:13px;margin:14px 0 4px;}
+  #infoCard .tier{display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;}
+  #infoCard .tier i{width:11px;height:11px;border-radius:2px;flex:0 0 auto;margin-top:5px;}
+  #infoCard .close-wrap{text-align:center;margin-top:14px;}
+  #infoClose{
+    border:none;background:var(--accent);color:#fff;
+    font-size:13px;font-weight:600;padding:8px 26px;border-radius:8px;
+    cursor:pointer;font-family:inherit;
+  }
   footer{
     background:var(--paper);border-top:1px solid #e2e2dd;
     padding:6px 14px;font-size:10.5px;color:#999;text-align:center;
@@ -68,13 +99,31 @@
 <body>
 
 <header>
-  <h1>陸橋撮影スポットガイド<span class="count" id="spotCount"></span></h1>
+  <h1>陸橋撮影スポットガイド<span class="count" id="spotCount"></span><button id="infoBtn" aria-label="このマップについて">ⓘ このマップについて</button></h1>
   <div class="legend">
     <span><i class="c1"></i>★★★ 神スポット</span>
     <span><i class="c2"></i>★★☆ 良スポット</span>
     <span><i class="c3"></i>★☆☆ 記録スポット</span>
   </div>
 </header>
+
+<div id="infoOverlay">
+  <div id="infoCard">
+    <h2>このマップについて</h2>
+    <p>陸橋（特に跨線橋）からの風景を撮影しています。</p>
+    <p>陸橋から見える風景は、「少しだけ地平線が見える」。それは都市にいるのに遠くを見通せる数少ない場所であり、すべてを見通せるわけではなくチラっと見えることの喜びも味わえる稀有な場所。</p>
+    <h3>【使用機材】</h3>
+    <p>カメラ：FUJIFILM X-Pro1<br>
+    レンズ：XF14mmF2.8 R / XF35mmF1.4 R / XF18-135mmF3.5-5.6 R LM OIS WR<br>
+    ※各スポットはこのいずれかの組み合わせで撮影しています。</p>
+    <h3>【このマップの評価基準】</h3>
+    <p>マップ上のアイコンの色が濃いほど、おすすめ度が高くなっています。</p>
+    <div class="tier"><i style="background:#1a1a1a"></i><span><b>★★★（神スポット）</b>：見ているだけで気分がスッとするような、絶景ポイント。</span></div>
+    <div class="tier"><i style="background:#7b2d3b"></i><span><b>★★☆（良スポット）</b>：撮影のしやすさや、周辺環境を含めてトータル的に良い場所。</span></div>
+    <div class="tier"><i style="background:#b5b5b0;border:1px solid #999"></i><span><b>★☆☆（記録スポット）</b>：目立つ特徴はないが、都会の中でホッとする、小さい陸橋。</span></div>
+    <div class="close-wrap"><button id="infoClose">閉じる</button></div>
+  </div>
+</div>
 
 <div id="map"></div>
 
@@ -690,6 +739,11 @@ spots.forEach(s => {
 });
 
 map.fitBounds(bounds, {padding:[40,40]});
+
+const infoOverlay = document.getElementById("infoOverlay");
+document.getElementById("infoBtn").addEventListener("click", () => infoOverlay.classList.add("open"));
+document.getElementById("infoClose").addEventListener("click", () => infoOverlay.classList.remove("open"));
+infoOverlay.addEventListener("click", e => { if (e.target === infoOverlay) infoOverlay.classList.remove("open"); });
 </script>
 
 </body>
