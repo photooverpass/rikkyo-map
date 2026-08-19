@@ -685,6 +685,28 @@ const spots = [
       "新幹線も陸橋の南側から少し見える",
       "駐車場が近くにまったくないので注意"
     ]
+  },
+  {
+    "name": "南千住駅前歩道橋",
+    "tier": 3,
+    "lat": 35.73147,
+    "lng": 139.79831,
+    "article": [
+      "https://note.com/ashita_ji/n/n54439f44ecff",
+      "https://note.com/ashita_ji/n/n1d0140d5d5af"
+    ],
+    "photos": null,
+    "date": "2026/06",
+    "time": "16:00〜17:00",
+    "subject": "線路、電車、貨物",
+    "fence": "高め",
+    "notes": [
+      "フェンスは高い",
+      "一脚を使ってフェンス上から撮影可能",
+      "フェンスの隙間があり撮影可能",
+      "近くに駐車場なし",
+      "僅かにあるが満車状態で空きがない"
+    ]
   }
 ];
 
@@ -719,9 +741,10 @@ spots.forEach(s => {
     ? `<div class="sp-notes">備考：<ul>${s.notes.map(n=>`<li>${n}</li>`).join("")}</ul></div>`
     : "";
 
-  const articleBtn = s.article
-    ? `<a class="sp-btn article" href="${s.article}" target="_blank" rel="noopener">📷 作例記事を見る</a>`
-    : "";
+  const articleUrls = Array.isArray(s.article) ? s.article : (s.article ? [s.article] : []);
+  const articleBtn = articleUrls
+    .map((url, i) => `<a class="sp-btn article" href="${url}" target="_blank" rel="noopener">📷 作例記事を見る${articleUrls.length > 1 ? `（${i+1}）` : ""}</a>`)
+    .join("");
 
   const html = `
     <div class="sp-rating">${TIER_STARS[s.tier]}</div>
